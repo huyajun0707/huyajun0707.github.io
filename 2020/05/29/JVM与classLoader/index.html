@@ -1,0 +1,271 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/icons/favicon-16x16.png?v=2.0.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/icons/favicon-32x32.png?v=2.0.1" type="image/png" sizes="32x32"><meta name="description" content="Java 虚拟机（Java virtual machine，JVM）是运行 Java 程序必不可少的机制。JVM实现了Java语言最重要的特征：即平台无关性。原理：编译后的 Java 程序指令并不直接在硬件系统的 CPU 上执行，而是由 JVM 执行。JVM屏蔽了与具体平台相关的信息，使Java语言编译程序只需要生成在JVM上运行的目标字节码（.class）,就可以在多种平台上不加修改地运行。Ja">
+<meta property="og:type" content="article">
+<meta property="og:title" content="JVM与classLoader加载">
+<meta property="og:url" content="http://yoursite.com/2020/05/29/JVM%E4%B8%8EclassLoader/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="Java 虚拟机（Java virtual machine，JVM）是运行 Java 程序必不可少的机制。JVM实现了Java语言最重要的特征：即平台无关性。原理：编译后的 Java 程序指令并不直接在硬件系统的 CPU 上执行，而是由 JVM 执行。JVM屏蔽了与具体平台相关的信息，使Java语言编译程序只需要生成在JVM上运行的目标字节码（.class）,就可以在多种平台上不加修改地运行。Ja">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://s1.ax1x.com/2020/06/02/ttYYy6.md.png">
+<meta property="og:image" content="https://s1.ax1x.com/2020/06/02/ttYtOK.md.png">
+<meta property="og:image" content="https://s1.ax1x.com/2020/06/02/ttYJQx.md.png">
+<meta property="og:image" content="https://s1.ax1x.com/2020/06/02/ttYGS1.md.png">
+<meta property="article:published_time" content="2020-05-29T07:47:44.834Z">
+<meta property="article:modified_time" content="2020-06-02T07:55:47.952Z">
+<meta property="article:author" content="John Doe">
+<meta property="article:tag" content="android">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s1.ax1x.com/2020/06/02/ttYYy6.md.png"><meta name="keywords" content="John Doe, Hexo"><meta name="description" content=""><title>JVM与classLoader加载 | Hexo</title><link ref="canonical" href="http://yoursite.com/2020/05/29/JVM%E4%B8%8EclassLoader/"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.0.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":3},
+  header: {"enable":true,"showOnPost":true,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"dark","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: false,
+  pjax: undefined,
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 4.2.1"></head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner"><nav class="header-nav header-nav--fixed"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav><div class="header-banner" style="background: url(https://rmt.dogedoge.com/fetch/fluid/storage/bg/dojm2h.png?w=1920&amp;q=100&amp;fmt=webp) no-repeat center/cover;"><div class="header-banner-info"><div class="header-banner-info__title">Hexo</div><div class="header-banner-info__subtitle"></div></div><div class="header-banner-arrow"><div class="header-banner-arrow__icon"><i class="fas fa-angle-down"></i></div></div></div></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">JVM与classLoader加载</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2020-05-29</span></span><span class="post-meta-item post-meta-item--updatetime"><span class="post-meta-item__icon"><i class="far fa-calendar-check"></i></span><span class="post-meta-item__info">更新于</span><span class="post-meta-item__value">2020-06-02</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">2.8k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">16分</span></span></div></header><div class="post-body">
+        <h1 id="JVM内存分配"   >
+          <a href="#JVM内存分配" class="heading-link"><i class="fas fa-link"></i></a>JVM内存分配</h1>
+      <p>Java 虚拟机（Java virtual machine，JVM）是运行 Java 程序必不可少的机制。JVM实现了Java语言最重要的特征：即平台无关性。原理：编译后的 Java 程序指令并不直接在硬件系统的 CPU 上执行，而是由 JVM 执行。JVM屏蔽了与具体平台相关的信息，使Java语言编译程序只需要生成在JVM上运行的目标字节码（.class）,就可以在多种平台上不加修改地运行。Java 虚拟机在执行字节码时，把字节码解释成具体平台上的机器指令执行。因此实现java平台无关性。它是 Java 程序能在多平台间进行无缝移植的可靠保证，同时也是 Java 程序的安全检验引擎（还进行安全检查）。</p>
+<p>JVM 是 编译后的 Java 程序（.class文件）和硬件系统之间的接口 （ 编译后：javac 是收录于 JDK 中的 Java 语言编译器。该工具可以将后缀名为. java 的源文件编译为后缀名为. class 的可以运行于 Java 虚拟机的字节码。）</p>
+
+        <h2 id="JVM加载java文件过程"   >
+          <a href="#JVM加载java文件过程" class="heading-link"><i class="fas fa-link"></i></a>JVM加载java文件过程</h2>
+      <ol>
+<li>编译器编译生成.class字节码文件</li>
+<li>程序中访问这个类时，需要通过classLoader加载到内存中</li>
+<li>JVM内存划分不同的数据区域<br>程序计数器、虚拟机栈、本地方法区、堆、方法区（其中方法区和堆是线程共享数据区）</li>
+</ol>
+
+        <h3 id="程序计数器"   >
+          <a href="#程序计数器" class="heading-link"><i class="fas fa-link"></i></a>程序计数器</h3>
+      <p>当线程挂起时用于记录当前线程代码执行到的位置，方便CPU重启时知道从哪行指令开始。</p>
+<ol>
+<li>没有规定OOM</li>
+<li>线程私有，随线程创建和死亡</li>
+<li>只能记录java方法，记录的是JVM虚拟机字节码指令，如果是native方法，则计数器值为空</li>
+</ol>
+
+        <h3 id="虚拟机栈"   >
+          <a href="#虚拟机栈" class="heading-link"><i class="fas fa-link"></i></a>虚拟机栈</h3>
+      <p>线程私有，与线程生命周期同步，有两种异常情况<br>StackOverflowError：当线程请求栈深度超出虚拟机栈所允许的深度时抛出</p>
+<p>OutOfMemoryError：当虚拟机动态扩展无法申请足够的内存时<br>JVM是基于栈的解释器执行的，DVM是基于寄存器解释器执行的。</p>
+<p>基于栈指的就是虚拟机栈。虚拟机栈是用来描述java方法执行的内存模型，每个方法被执行时，JVM都会在虚拟机栈中创建一个栈桢。<br>一个线程包含多个栈帧，而每个栈帧内部包含局部变量表、操作数栈、动态连接、返回地址等。</p>
+
+        <h4 id="栈桢"   >
+          <a href="#栈桢" class="heading-link"><i class="fas fa-link"></i></a>栈桢</h4>
+      <p><a href="https://imgchr.com/i/ttYYy6" target="_blank" rel="noopener"><img src="https://s1.ax1x.com/2020/06/02/ttYYy6.md.png" alt="ttYYy6.md.png"></a></p>
+<ul>
+<li>局部变量表</li>
+</ul>
+<p>入参及方法内创建的局部变量都保存在局部变量表中，java在编译成.class时，就会在方法code属性表中max_locals数据项中，确定该方法需要分配的最大局部变量表的容量。</p>
+<ul>
+<li>操作数栈</li>
+</ul>
+<p>后入先出栈（LIFO），和局部变量一样，也在编译时写入方法Code属性表中max_stacks数据中</p>
+<ul>
+<li>动态链接</li>
+</ul>
+<p>一个方法要调用其他方法，需要将这些方法的符号引用转化为其所在内存地址中的直接引用，而符号引用存在于方法区中。</p>
+<ul>
+<li>返回地址</li>
+</ul>
+<p>方法执行完成后退出方法，用来帮助当前方法恢复它的上层方法执行状态</p>
+<p>正常退出：</p>
+<p>异常退出：</p>
+
+        <h3 id="本地方法栈"   >
+          <a href="#本地方法栈" class="heading-link"><i class="fas fa-link"></i></a>本地方法栈</h3>
+      <p>JNI 针对native方法</p>
+
+        <h3 id="堆"   >
+          <a href="#堆" class="heading-link"><i class="fas fa-link"></i></a>堆</h3>
+      <p>存放对象实例，GC管理的主要区域。</p>
+
+        <h3 id="方法区"   >
+          <a href="#方法区" class="heading-link"><i class="fas fa-link"></i></a>方法区</h3>
+      <p>JVM中运行时数据区，主要存储已经被JVM加载的类信息（版本、字段、方法、接口）、常量、静态变量</p>
+<p><a href="https://imgchr.com/i/ttYtOK" target="_blank" rel="noopener"><img src="https://s1.ax1x.com/2020/06/02/ttYtOK.md.png" alt="ttYtOK.md.png"></a></p>
+<p>JVM 的运行时内存结构中一共有两个“栈”和一个“堆”，分别是：Java 虚拟机栈和本地方法栈，以及“GC堆”和方法区。除此之外还有一个程序计数器。</p>
+
+        <h2 id="堆的扩展"   >
+          <a href="#堆的扩展" class="heading-link"><i class="fas fa-link"></i></a>堆的扩展</h2>
+      <p>对象在内存中的布局分为三个部分：对象头、实例数据，对齐填充。</p>
+<p>在new一个对象时，JVM会在堆中创建一个instanceOopDesc对象。</p>
+<p><a href="https://imgchr.com/i/ttYJQx" target="_blank" rel="noopener"><img src="https://s1.ax1x.com/2020/06/02/ttYJQx.md.png" alt="ttYJQx.md.png"></a></p>
+<p>_mark 是 markOop 类型数据，一般称它为标记字段（Mark Word），其中主要存储了对象的 hashCode、分代年龄、锁标志位，是否偏向锁等。<br>_metadata保存了类元数据。</p>
+
+        <h4 id="Monitor"   >
+          <a href="#Monitor" class="heading-link"><i class="fas fa-link"></i></a>Monitor</h4>
+      <p>保存在对象头中的一个对象。monitorObject是Monitor的具体实现，这就是为什么object 对象都可以作为锁的原因。</p>
+
+        <h2 id="类加载的时机："   >
+          <a href="#类加载的时机：" class="heading-link"><i class="fas fa-link"></i></a>类加载的时机：</h2>
+      <p>程序运行过程中，动态加载相应类到内存中。</p>
+<p>主动加载(2种情况)</p>
+<ol>
+<li>调用类的构造器</li>
+<li>调用静态变量和静态方法</li>
+</ol>
+
+        <h2 id="类加载器"   >
+          <a href="#类加载器" class="heading-link"><i class="fas fa-link"></i></a>类加载器</h2>
+      <ul>
+<li>启动类加载器 BootstrapClassLoader</li>
+<li>扩展器加载器 ExtClassLoader (JDK1.9 后改名为PlatformClassLoader)</li>
+<li>系统加载器 AppClassLoader</li>
+</ul>
+<ol>
+<li>AppClassLoader</li>
+</ol>
+<p>主要加载系统‘java.class.path’配置下类文件，也就是环境变量CLASS_PATH配置的路径。自己编写的代码以及第三方jar包都是由它来加载的。</p>
+<ol start="2">
+<li>ExtClassLoader</li>
+</ol>
+<p>加载系统属性“java.ext.dirs”配置下类文件，JRE/lib/ext</p>
+<ol start="3">
+<li>BootstrapClassLoader</li>
+</ol>
+<p>它是由c/c++语言编写的，加载系统属性“sun.boot.class.path”配置下类文件，全是 JRE 目录下的 jar 包或者 .class 文件<br>jre/lib/resources.jar</p>
+<p>jre/lib/rt.jar</p>
+<p>jre/lib/sunrsasign.jar  等等</p>
+
+        <h3 id="双亲委派模式"   >
+          <a href="#双亲委派模式" class="heading-link"><i class="fas fa-link"></i></a>双亲委派模式</h3>
+      <ol>
+<li>判断该Class是否已加载，如果已加载，则直接将该Class返回。</li>
+<li>如果该Class没有被加载过，则判断parent是否为空，如果不为空则将加载的任务委托给parent。</li>
+<li>如果 parent == null，则直接调用 BootstrapClassLoader 加载该类。</li>
+<li>如果 parent 或者 BootstrapClassLoader 都没有加载成功，则调用当前 ClassLoader 的 findClass 方法继续尝试加载。</li>
+</ol>
+<p>加载类过程举例</p>
+<figure class="highlight bash"><div class="table-container"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Test <span class="built_in">test</span> = new Test();</span><br><span class="line">//1. AppClassLoader将加载的任务委派给它的父类加载器（parent）--ExtClassLoader</span><br><span class="line">//2. ExtClassLoader的parent为null,所以直接将加载任务委派给BotstrapClassLoader</span><br><span class="line">//3. BootstrapClassLoader在jdk/lib目录下找不到Test类，返回null</span><br><span class="line">//4. parent与bootstrapClassLoader都没有成功加载class,AppClassLoader会调用自身的findClass方法来加载。</span><br></pre></td></tr></table></div></figure>
+
+
+<p>注意：“双亲委派”机制只是Java推荐的机制，并不是强制的机制。我们可以继承java.lang.ClassLoader类，实现自己的类加载器。如果想保持双亲委派模型，就应该重写findClass(name)方法；如果想破坏双亲委派模型，可以重写loadClass(name)方法。</p>
+
+        <h3 id="Android中的classLoader"   >
+          <a href="#Android中的classLoader" class="heading-link"><i class="fas fa-link"></i></a>Android中的classLoader</h3>
+      
+        <h4 id="PathClassLoader"   >
+          <a href="#PathClassLoader" class="heading-link"><i class="fas fa-link"></i></a>PathClassLoader</h4>
+      <p>用来加载系统apk和被安装到手机中的apk内的dex文件。</p>
+<figure class="highlight bash"><div class="table-container"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">public class PathClassLoader extends BaseDexClassLoader &#123;</span><br><span class="line">    public PathClassLoader(String dexPath, ClassLoader parent) &#123;</span><br><span class="line">        super((String)null, (File)null, (String)null, (ClassLoader)null);</span><br><span class="line">        throw new RuntimeException(<span class="string">"Stub!"</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    public PathClassLoader(String dexPath, String librarySearchPath, ClassLoader parent) &#123;</span><br><span class="line">        super((String)null, (File)null, (String)null, (ClassLoader)null);</span><br><span class="line">        throw new RuntimeException(<span class="string">"Stub!"</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></div></figure>
+<p>参数说明：</p>
+<p>dexPath：dex 文件路径，或者包含 dex 文件的 jar 包路径；</p>
+<p>librarySearchPath：C/C++ native 库的路径。</p>
+
+        <h4 id="DexClassLoader"   >
+          <a href="#DexClassLoader" class="heading-link"><i class="fas fa-link"></i></a>DexClassLoader</h4>
+      <p>对比PathClassLoader只能加载已经安装应用的dex或apk文件，DexClassLoader则没有此限制，可以从SD卡上加载包含class.dex的.jar和.apk文件，这是插件化和热修复的基础。</p>
+<figure class="highlight bash"><div class="table-container"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">public class DexClassLoader extends BaseDexClassLoader &#123;</span><br><span class="line">    public DexClassLoader(String dexPath, String optimizedDirectory, String librarySearchPath, ClassLoader parent) &#123;</span><br><span class="line">        super((String)null, (File)null, (String)null, (ClassLoader)null);</span><br><span class="line">        throw new RuntimeException(<span class="string">"Stub!"</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></div></figure>
+<p>参数说明：</p>
+<p>dexPath：包含 class.dex 的 apk、jar 文件路径 ，多个路径用文件分隔符（默认是“:”）分隔。</p>
+<p>optimizedDirectory：用来缓存优化的 dex 文件的路径，即从 apk 或 jar 文件中提取出来的 dex 文件。该路径不可以为空，且应该是应用私有的，有读写权限的路径。</p>
+<p>总结：</p>
+<ul>
+<li>ClassLoader 就是用来加载 class 文件的，不管是 jar 中还是 dex 中的 class。</li>
+<li>Java 中的 ClassLoader 通过双亲委托来加载各自指定路径下的 class 文件。</li>
+<li>可以自定义 ClassLoader，一般覆盖 findClass() 方法，不建议重写 loadClass 方法。</li>
+<li>Android 中常用的两种 ClassLoader 分别为：PathClassLoader 和 DexClassLoader。</li>
+</ul>
+
+        <h1 id="class初始化过程"   >
+          <a href="#class初始化过程" class="heading-link"><i class="fas fa-link"></i></a>class初始化过程</h1>
+      <p>JVM加载class到内存中主要包括三大步骤</p>
+<p><a href="https://imgchr.com/i/ttYGS1" target="_blank" rel="noopener"><img src="https://s1.ax1x.com/2020/06/02/ttYGS1.md.png" alt="ttYGS1.md.png"></a></p>
+
+        <h3 id="装载"   >
+          <a href="#装载" class="heading-link"><i class="fas fa-link"></i></a>装载</h3>
+      <ol>
+<li>classLoader加载，通过包名+类名查找.class文件，生成二进制流（格式，可以是jar、zip、网络字节流）</li>
+<li>把.class文件各个部分解析为JVM内部数据结构，并存储在方法区。</li>
+<li>在内存中创建一个java.lang.Class类型的对象，用于对该类的访问（提供给外界的访问接口）。</li>
+</ol>
+
+        <h4 id="加载时机"   >
+          <a href="#加载时机" class="heading-link"><i class="fas fa-link"></i></a>加载时机</h4>
+      <ul>
+<li><p>隐式加载：在程序运行中，遇到new生成对象时，系统会调用ClassLoader去装裁对应的class到内存中</p>
+</li>
+<li><p>显式加载：主动调用Class.forName()</p>
+</li>
+</ul>
+
+        <h3 id="链接"   >
+          <a href="#链接" class="heading-link"><i class="fas fa-link"></i></a>链接</h3>
+      <p>包括三步：验证、准备、解析</p>
+<p><strong>验证：</strong> 验证格式，确保.class文件字节流包含的信息符合当前虚拟机的要求。</p>
+<ol>
+<li>文件格式检验，保证当前虚拟机版本可处理</li>
+<li>元数据检验：保证元数据符合java语言规范</li>
+<li>字节码检验：确定程序语义是合法，符合逻辑的</li>
+<li>符号引用检验：对类自身以外（常量池中的各种符号引用）的信息进行匹配性校验</li>
+<li>注意：即例没有java原文件，还是可以对.class字节码进行篡改，因此项目经常使用混淆、加固，来保证代码的安全性。</li>
+</ol>
+<p><strong>准备：</strong> 是链接的第2步，主要目的是为类中的静态变量分配内存，并为其设置‘0’值。</p>
+<figure class="highlight bash"><div class="table-container"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">public static int value = 100;//准备阶段会赋值为0   初始化阶段会设置为100</span><br><span class="line">public static final int value = 100;//静态常量 在准备阶段就会为其分配内存，设置为100</span><br></pre></td></tr></table></div></figure>
+<p>Java 中基本类型的默认”0值“如下：</p>
+<p>基本类型（int、long、short、char、byte、boolean、float、double）的默认值为 0；</p>
+<p>引用类型默认值是 null；</p>
+<p><strong>解析：</strong> 是链接的最后一步，是把常量池中的符号引用转换为直接引用，也就是具体的内存地址。JVM会把常量池中的类、接口名、字段名、方法名等转换为具体的内存地址。</p>
+
+        <h3 id="初始化"   >
+          <a href="#初始化" class="heading-link"><i class="fas fa-link"></i></a>初始化</h3>
+      <p>这一阶段会执行类构造器<cinit>方法的过程，真正初始化类变量。</p>
+<figure class="highlight bash"><div class="table-container"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">public static int value = 100;//在此阶段会被真正设置为100</span><br></pre></td></tr></table></div></figure>
+
+        <h4 id="初始化的时机（主动引用）"   >
+          <a href="#初始化的时机（主动引用）" class="heading-link"><i class="fas fa-link"></i></a>初始化的时机（主动引用）</h4>
+      <ol>
+<li>虚拟机启动时，初始化包含main方法的主类；</li>
+<li>遇到new指令时，如果目标对象类没有被初始化则进行初始化操作；</li>
+<li>当遇到访问静态方法和静态字段时，如果目标对象没有被初始化则进行初始化操作；</li>
+<li>子类的初始化过程如发现父类还没进行初始化，则对父类进行初始化；</li>
+<li>使用反射API进行反射调用时。。。。</li>
+<li>第一次调用java.lang.invoke.MethodHandle实例时</li>
+</ol>
+<p>对于静态字段，只有直接定义这个字段的类才会被初始化，因此通过子类Child来引用父类Parent中定义的静态字段，只会触发父类Parent的初始化而不会触发子类Child的初始化。至于是否要触发子类的加载和验证，在虚拟机规范中并未明确规定。</p>
+
+        <h4 id="class初始化和对象的创建顺序"   >
+          <a href="#class初始化和对象的创建顺序" class="heading-link"><i class="fas fa-link"></i></a>class初始化和对象的创建顺序</h4>
+      <p>静态变量/静态代码块 -&gt; 普通代码块 -&gt; 构造函数</p>
+<ol>
+<li>父类静态变量和静态代码块；</li>
+<li>子类静态变量和静态代码块；</li>
+<li>父类普通成员变量和普通代码块；</li>
+<li>父类的构造函数；</li>
+<li>子类普通成员变量和普通代码块；</li>
+<li>子类的构造函数。</li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="http://yoursite.com">John Doe</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="http://yoursite.com/2020/05/29/JVM%E4%B8%8EclassLoader/">http://yoursite.com/2020/05/29/JVM%E4%B8%8EclassLoader/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="http://yoursite.com/tags/android/">android</a></span></div><nav class="post-paginator paginator"><div class="paginator-next"><a class="paginator-next__link" href="/2020/05/29/android%20js%E4%BA%A4%E4%BA%92/"><span class="paginator-prev__text">android js交互</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#JVM内存分配"><span class="toc-number">1.</span> <span class="toc-text">
+          JVM内存分配</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#JVM加载java文件过程"><span class="toc-number">1.1.</span> <span class="toc-text">
+          JVM加载java文件过程</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#程序计数器"><span class="toc-number">1.1.1.</span> <span class="toc-text">
+          程序计数器</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#虚拟机栈"><span class="toc-number">1.1.2.</span> <span class="toc-text">
+          虚拟机栈</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#本地方法栈"><span class="toc-number">1.1.3.</span> <span class="toc-text">
+          本地方法栈</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#堆"><span class="toc-number">1.1.4.</span> <span class="toc-text">
+          堆</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#方法区"><span class="toc-number">1.1.5.</span> <span class="toc-text">
+          方法区</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#堆的扩展"><span class="toc-number">1.2.</span> <span class="toc-text">
+          堆的扩展</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#类加载的时机："><span class="toc-number">1.3.</span> <span class="toc-text">
+          类加载的时机：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#类加载器"><span class="toc-number">1.4.</span> <span class="toc-text">
+          类加载器</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#双亲委派模式"><span class="toc-number">1.4.1.</span> <span class="toc-text">
+          双亲委派模式</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Android中的classLoader"><span class="toc-number">1.4.2.</span> <span class="toc-text">
+          Android中的classLoader</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#class初始化过程"><span class="toc-number">2.</span> <span class="toc-text">
+          class初始化过程</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#装载"><span class="toc-number">2.0.1.</span> <span class="toc-text">
+          装载</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#链接"><span class="toc-number">2.0.2.</span> <span class="toc-text">
+          链接</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#初始化"><span class="toc-number">2.0.3.</span> <span class="toc-text">
+          初始化</span></a></li></ol></li></ol></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="http://m.imeitou.com/uploads/allimg/200526/3-200526102343.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">hello world</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="yournumber" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="yournumber" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">2</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">2</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">1</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2020</span><span class="footer__icon"><i class="fas fa-heart"></i></span><span>John Doe</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v4.2.1</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.0.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="/js/utils.js?v=2.0.1"></script><script src="/js/stun-boot.js?v=2.0.1"></script><script src="/js/scroll.js?v=2.0.1"></script><script src="/js/header.js?v=2.0.1"></script><script src="/js/sidebar.js?v=2.0.1"></script></body></html>
